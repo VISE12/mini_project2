@@ -63,37 +63,6 @@ string get_file(int img){
 	return ss.str();
 }
 
-void find_marker_from_gray_image(string file) {
-    // Load image
-    cv::Mat org = cv::imread(file, 1);
-    cv::Mat img = cv::imread(file, 0);
-
-    // Vector for found circles (Only one is found)
-    vector<cv::Vec3f> circles;
-
-    // Blur the image and find the marker
-    cv::GaussianBlur(img, img, cv::Size(7,7), 1.5, 1.5);
-    cv::HoughCircles( img, circles, CV_HOUGH_GRADIENT, 2, 1000, 200, 100, 45, 50);
-
-    // Paint the marker
-    cv::Point center(cvRound(circles[0][0]), cvRound(circles[0][1]));
-    int radius = cvRound(circles[0][2]);
-    cv::circle( org, center, 3, cv::Scalar(0,255,0), -1, 8, 0 );
-    cv::circle( org, center, radius, cv::Scalar(0,0,255), 3, 8, 0 );
-
-    imshow( "circles", org);
-    cv::waitKey(10);
-}
-
-void animate_one() {
-	string file;
-    for (int i = 1; i <= 30; i++) {
-        file = get_file(i);
-        find_marker_from_gray_image(file);
-    }
-    cv::waitKey();
-}
-
 void load_test_image(){
 	// Load an image with imread
 	string file = get_file(0);
@@ -247,8 +216,18 @@ void colour_segmentaion(string file){
 	//cv::cvtColor(hsvimg, src, CV_HSV2BGR);
 	//use_bitmask(hsv_split.at(2), src, src);
 	//cv::imshow("HSV", hsvimg);
-	cv::resize(src, src, cv::Size(0,0), 0.5,0.5);
+
+	// Try the chess corners function
+	MatT chess;
+	cv::cvtColor(src, chess, CV_BGR2GRAY);
+	//chess.convertTo(chess,CV_8U);
+	MatT corners = cv::Mat::zeros( src.size(), CV_32FC1 );
+	corners.convertTo(corners,CV_32FC1);
+	cv::cornerHarris(chess, corners, 2, 3, 0.04);
+
+	cv::resize(src, src, cv::Size(0,0), 0.5,0.5);	// Resize the image to fit in stupid notebook window
 	cv::imshow(winname, src);
+	cv::imshow("Corner", corners);
 	//cv::imshow("Canny", canny_output);
 	//cv::imshow("Colour", drawing);
 	//cv::imshow("H", hsv_split.at(0));
@@ -299,13 +278,6 @@ void animate_parameters(){
 }
 
 int main(int argc, char **argv) {
-	//parameters.H_high = 200;
-	//parameters.H_low = 146;
-	//parameters.S_high = 0.5;
-	//parameters.S_low = 0.25;
-	//parameters.V_high = 0.55;
-	//parameters.V_low = 0.1;
-
 	parameters.Hv_high = 200;
 	parameters.Hv_low = 146;
 	parameters.Sv_high = 650;
