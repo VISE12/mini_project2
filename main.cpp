@@ -183,15 +183,15 @@ void colour_segmentaion(){
 	use_bitmask(hsv_split.at(0), hsvimg, hsvimg);
 	// threshold S
 	threshold(hsvimg, hsvimg, 1, 0.25, 0.5);
+	cv::split(hsvimg,hsv_split);
 	cv::erode(hsv_split.at(1), hsv_split.at(1), element);
 	cv::dilate(hsv_split.at(1),hsv_split.at(1), element);
-	cv::split(hsvimg,hsv_split);
 	use_bitmask(hsv_split.at(1), hsvimg, hsvimg);
 	// threshold V
 	threshold(hsvimg, hsvimg, 2, 0.1, 0.55);
+	cv::split(hsvimg,hsv_split);
 	cv::erode(hsv_split.at(2), hsv_split.at(2), element);
 	cv::dilate(hsv_split.at(2),hsv_split.at(2), element);
-	cv::split(hsvimg,hsv_split);
 	use_bitmask(hsv_split.at(2), hsvimg, hsvimg);
 
 	// Find contours
