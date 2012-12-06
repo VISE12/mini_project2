@@ -8,6 +8,15 @@ typedef cv::Vec<T,3> VecT; // 3-vector
 typedef cv::Mat_<VecT> ImgT; // 3-channel image
 typedef cv::Mat_<T> MatT; // 1-channel container
 
+struct parameters{
+	int file_no;
+	double H_low, H_high;
+	double S_low, S_high;
+	double V_low, V_high;
+	int Hv_low, Hv_high;
+	int Sv_low, Sv_high;
+}parameters;
+
 struct component{
 	int area;
 	int perimeter;
@@ -16,11 +25,8 @@ struct component{
 
 	void calculate(vector<cv::Point> contour){
 		area = cv::contourArea(contour);
-		cout << "Area: " << area << endl;
 		perimeter = contour.size();
-		cout << "Perimeter: " << perimeter << endl;
 		compactness = (double) pow((double)perimeter, 2) / (double) area;
-		cout << "Compactness: " << compactness << endl;
 
 		int sumx=0, sumy=0;
 		for (int i = 0; i < contour.size(); i++) {
@@ -28,7 +34,11 @@ struct component{
 			sumy += contour.at(i).y;
 		}
 		centroid = cv::Point(sumx/contour.size(), sumy/contour.size());
-		cout << "Centroid: (" << centroid.x << ", " << centroid.y << ")" << endl;
+
+//		cout << "Compactness: " << compactness << endl;
+//		cout << "Perimeter: " << perimeter << endl;
+//		cout << "Area: " << area << endl;
+//		cout << "Centroid: (" << centroid.x << ", " << centroid.y << ")" << endl;
 	}
 };
 
@@ -44,6 +54,7 @@ struct componentlist{
 }componentlist;
 
 string path = "D:/Dropbox/7. Semester/VIS/mini project 2/vis1_pro2_sequences/vis1_pro2_sequences/sequence3/";
+string winname = "output";
 
 string get_file(int img){
 	stringstream ss;
@@ -156,8 +167,8 @@ vector<vector<cv::Point> > get_valid_contours(vector< vector<cv::Point> >& conto
 			tmp.push_back(contours.at(i));
 		}
 	}
-	cout << "Contours before: "<< contours.size() << endl;
-	cout << "Contours after: "<< tmp.size() << endl;
+	//cout << "Contours before: "<< contours.size() << endl;
+	//cout << "Contours after: "<< tmp.size() << endl;
 	return tmp;
 }
 void colour_segmentaion(string file){
@@ -167,6 +178,7 @@ void colour_segmentaion(string file){
 		std::cout << "Missing image file: " << file << std::endl;
 		return;
 	}
+	cout << "file: " << file << endl;
 	cout << "Size: " << src.rows << ", " << src.cols << endl;
 
 	// convert to HSV
@@ -174,20 +186,23 @@ void colour_segmentaion(string file){
 	cv::Mat element;
 	cv::cvtColor(src, hsvimg, CV_BGR2HSV, 0);
 	// threshold H value
-	threshold(hsvimg, hsvimg, 0, 150, 200);
+	//threshold(hsvimg, hsvimg, 0, 150, 200);
+	threshold(hsvimg, hsvimg, 0, parameters.H_low, parameters.H_high);
 	vector<MatT> hsv_split(3);
 	cv::split(hsvimg,hsv_split);
 	cv::erode(hsv_split.at(0), hsv_split.at(0), element);
 	cv::dilate(hsv_split.at(0),hsv_split.at(0), element);
 	use_bitmask(hsv_split.at(0), hsvimg, hsvimg);
 	// threshold S
-	threshold(hsvimg, hsvimg, 1, 0.25, 0.5);
+	//threshold(hsvimg, hsvimg, 1, 0.25, 0.5);
+	threshold(hsvimg, hsvimg, 1, parameters.S_low, parameters.S_high);
 	cv::split(hsvimg,hsv_split);
 	cv::erode(hsv_split.at(1), hsv_split.at(1), element);
 	cv::dilate(hsv_split.at(1),hsv_split.at(1), element);
 	use_bitmask(hsv_split.at(1), hsvimg, hsvimg);
 	// threshold V
-	threshold(hsvimg, hsvimg, 2, 0.1, 0.55);
+	//threshold(hsvimg, hsvimg, 2, 0.1, 0.55);
+	threshold(hsvimg, hsvimg, 2, parameters.V_low, parameters.V_high);
 	cv::split(hsvimg,hsv_split);
 	cv::erode(hsv_split.at(2), hsv_split.at(2), element);
 	cv::dilate(hsv_split.at(2),hsv_split.at(2), element);
@@ -227,30 +242,73 @@ void colour_segmentaion(string file){
 	cv::split(hsvimg,hsv_split);
 	cv::normalize(hsv_split.at(0), hsv_split.at(0),360);	// H value 0 - 360 -> 0 - 1
 
+
 	//cv::cvtColor(hsvimg, src, CV_HSV2BGR);
 	//use_bitmask(hsv_split.at(2), src, src);
 	//cv::imshow("HSV", hsvimg);
-	cv::imshow("Original", src);
+	cv::resize(src, src, cv::Size(0,0), 0.5,0.5);
+	cv::imshow(winname, src);
 	//cv::imshow("Canny", canny_output);
 	//cv::imshow("Colour", drawing);
-	cv::imshow("H", hsv_split.at(0));
-	cv::imshow("S", hsv_split.at(1));
-	cv::imshow("V", hsv_split.at(2));
+	//cv::imshow("H", hsv_split.at(0));
+	//cv::imshow("S", hsv_split.at(1));
+	//cv::imshow("V", hsv_split.at(2));
 }
 
 void animate(){
-	for (int i = 0; i < 30; i++) {
-		string file = get_file(i);
+	string file;
+	for (int i = 0; i <= 30; i++) {
+		file = get_file(i);
 		colour_segmentaion(file);
-		cv::waitKey(10);
+		int c = cvWaitKey(20);
+		if((char)c==27){
+			break;
+		}
 	}
 }
+
+void callback(int, void*){
+	parameters.H_low = (double) parameters.Hv_low;
+	parameters.H_high = (double) parameters.Hv_high;
+	parameters.S_low = (double) parameters.Sv_low / (double) 1000;
+	parameters.S_high = (double) parameters.Sv_high / (double) 1000;
+	//cout << "H low: " << parameters.H_low << endl;
+	string file = get_file(parameters.file_no);
+	colour_segmentaion(file);
+}
+
+void animate_parameters(){
+	parameters.file_no = 30;
+	cv::namedWindow(winname, CV_WINDOW_AUTOSIZE);
+	cv::createTrackbar("File", winname, &parameters.file_no, 30, callback);
+	cv::createTrackbar("H low", winname, &parameters.Hv_low, 360, callback);
+	cv::createTrackbar("H high", winname, &parameters.Hv_high, 360, callback);
+	cv::createTrackbar("S low", winname, &parameters.Sv_low, 1000, callback);
+	cv::createTrackbar("S high", winname, &parameters.Sv_high, 1000, callback);
+	callback(0,0);
+	cv::waitKey();
+}
+
 int main(int argc, char **argv) {
+	//parameters.H_high = 200;
+	//parameters.H_low = 146;
+	//parameters.S_high = 0.5;
+	//parameters.S_low = 0.25;
+	parameters.V_high = 0.55;
+	parameters.V_low = 0.1;
+
+	parameters.Hv_high = 200;
+	parameters.Hv_low = 146;
+	parameters.Sv_high = 500;
+	parameters.Sv_low = 250;
+
+	callback(0,0);
 	//load_test_image();
 	//animate_one();
-	string file = get_file(30);
-	colour_segmentaion(file);
-	//animate();
+	//string file = get_file(30);
+	//colour_segmentaion(file);
+	animate_parameters();
+	animate();
 	cv::waitKey();
 	return 0;
 }
