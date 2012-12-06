@@ -54,7 +54,7 @@ struct componentlist{
 	}
 }componentlist;
 
-string path = "D:/Dropbox/7. Semester/VIS/mini project 2/vis1_pro2_sequences/vis1_pro2_sequences/sequence3/";
+string path = "D:/Dropbox/7. Semester/VIS/mini project 2/vis1_pro2_sequences/vis1_pro2_sequences/sequence1/";
 string winname = "output";
 
 string get_file(int img){
@@ -217,17 +217,8 @@ void colour_segmentaion(string file){
 	//use_bitmask(hsv_split.at(2), src, src);
 	//cv::imshow("HSV", hsvimg);
 
-	// Try the chess corners function
-	MatT chess;
-	cv::cvtColor(src, chess, CV_BGR2GRAY);
-	//chess.convertTo(chess,CV_8U);
-	MatT corners = cv::Mat::zeros( src.size(), CV_32FC1 );
-	corners.convertTo(corners,CV_32FC1);
-	cv::cornerHarris(chess, corners, 2, 3, 0.04);
-
 	cv::resize(src, src, cv::Size(0,0), 0.5,0.5);	// Resize the image to fit in stupid notebook window
 	cv::imshow(winname, src);
-	cv::imshow("Corner", corners);
 	//cv::imshow("Canny", canny_output);
 	//cv::imshow("Colour", drawing);
 	//cv::imshow("H", hsv_split.at(0));
@@ -247,6 +238,52 @@ void animate(){
 	}
 }
 
+void my_grayscale(const ImgT& src, cv::Mat& dst){
+	dst = MatT(src.size());
+	for (int i = 0; i < src.rows; i++) {
+		for (int k = 0; k < src.cols; k++) {
+			dst.at<T>(i,k) = (src.at<VecT>(i,k)[0]*255/360) * src.at<VecT>(i,k)[1]*src.at<VecT>(i,k)[2];
+			//sqrt(pow((double) src.at<T>(i,k)[0],2) + pow((double) src.at<T>(i,k)[1],2)+ pow((double) src.at<T>(i,k)[2],2));
+		}
+	}
+}
+
+void feature_detection(string file){
+	ImgT src = cv::imread(file);
+	src /= 255; // Convert to float region
+	if (src.data == NULL){
+		std::cout << "Missing image file: " << file << std::endl;
+		return;
+	}
+	cout << "file: " << file << endl;
+	cout << "Size: " << src.rows << ", " << src.cols << endl;
+
+	cv::Mat binary, gray;
+	ImgT hsv;
+	cv::cvtColor(src, hsv, CV_BGR2HSV);
+	my_grayscale(hsv, gray);
+	//binary.convertTo(binary, CV_8U);
+	gray.convertTo(gray, CV_8U);
+	cv::Mat canny_output;
+	// Detect edges using canny
+	//cv::GaussianBlur(binary,binary,cv::Size(7,7),1.5,1.5);
+	cv::GaussianBlur(gray,gray,cv::Size(7,7),1.5,1.5);
+	double thresh = 20;
+	cv::Canny( gray, canny_output, thresh, thresh*3,3);
+	// Try the harris corners function
+//	MatT gray;
+//	cv::cvtColor(src, gray, CV_BGR2GRAY);
+//	MatT corners = cv::Mat::zeros( src.size(), CV_32FC1 );
+//	corners.convertTo(corners,CV_32FC1);
+//	cv::cornerHarris(canny_output, corners, 2, 3, 0.04);
+
+	cv::resize(src, src, cv::Size(0,0), 0.5,0.5);	// Resize the image to fit in stupid notebook window
+	//cv::resize(corners, corners, cv::Size(0,0), 0.5,0.5);	// Resize the image to fit in stupid notebook window
+	cv::imshow(winname, src);
+	cv::imshow("Gray", gray);
+	cv::imshow("Canny", canny_output);
+	//cv::imshow("Corner", corners);
+}
 void callback(int, void*){
 	parameters.H_low = (double) parameters.Hv_low;
 	parameters.H_high = (double) parameters.Hv_high;
@@ -277,6 +314,19 @@ void animate_parameters(){
 	cv::waitKey();
 }
 
+void animate_feature(){
+	string file;
+	for (int i = 0; i <= 30; i++) {
+		file = get_file(i);
+		feature_detection(file);
+		int c = cv::waitKey(20);
+		if (c == 27){
+			break;
+		}
+	}
+	cv::waitKey();
+}
+
 int main(int argc, char **argv) {
 	parameters.Hv_high = 200;
 	parameters.Hv_low = 146;
@@ -290,8 +340,10 @@ int main(int argc, char **argv) {
 	//animate_one();
 	//string file = get_file(30);
 	//colour_segmentaion(file);
-	animate_parameters();	// Run this to set your desired parameters - Press esc or close window when done
-	animate();				// This is the free running method
+	//animate_parameters();	// Run this to set your desired parameters - Press esc or close window when done
+	//animate();				// This is the free running method
+
+	animate_feature();
 	cv::waitKey();
 	return 0;
 }
