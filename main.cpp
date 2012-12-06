@@ -15,6 +15,7 @@ struct parameters{
 	double V_low, V_high;
 	int Hv_low, Hv_high;
 	int Sv_low, Sv_high;
+	int Vv_low, Vv_high;
 }parameters;
 
 struct component{
@@ -272,6 +273,8 @@ void callback(int, void*){
 	parameters.H_high = (double) parameters.Hv_high;
 	parameters.S_low = (double) parameters.Sv_low / (double) 1000;
 	parameters.S_high = (double) parameters.Sv_high / (double) 1000;
+	parameters.V_low = (double) parameters.Vv_low / (double) 1000;
+	parameters.V_high = (double) parameters.Vv_high / (double) 1000;
 	//cout << "H low: " << parameters.H_low << endl;
 	string file = get_file(parameters.file_no);
 	colour_segmentaion(file);
@@ -279,12 +282,18 @@ void callback(int, void*){
 
 void animate_parameters(){
 	parameters.file_no = 30;
+	string trackers = "trackers";
 	cv::namedWindow(winname, CV_WINDOW_AUTOSIZE);
-	cv::createTrackbar("File", winname, &parameters.file_no, 30, callback);
-	cv::createTrackbar("H low", winname, &parameters.Hv_low, 360, callback);
-	cv::createTrackbar("H high", winname, &parameters.Hv_high, 360, callback);
-	cv::createTrackbar("S low", winname, &parameters.Sv_low, 1000, callback);
-	cv::createTrackbar("S high", winname, &parameters.Sv_high, 1000, callback);
+	cv::namedWindow(trackers, CV_WINDOW_AUTOSIZE);
+	cv::Mat empty = cv::Mat::zeros(cv::Size(400,300),CV_32F);
+	cv::createTrackbar("File", trackers, &parameters.file_no, 30, callback);
+	cv::createTrackbar("H low", trackers, &parameters.Hv_low, 360, callback);
+	cv::createTrackbar("H high", trackers, &parameters.Hv_high, 360, callback);
+	cv::createTrackbar("S low", trackers, &parameters.Sv_low, 1000, callback);
+	cv::createTrackbar("S high", trackers, &parameters.Sv_high, 1000, callback);
+	cv::createTrackbar("V low", trackers, &parameters.Vv_low, 1000, callback);
+	cv::createTrackbar("V high", trackers, &parameters.Vv_high, 1000, callback);
+	cv::imshow(trackers,empty);
 	callback(0,0);
 	cv::waitKey();
 }
@@ -294,21 +303,23 @@ int main(int argc, char **argv) {
 	//parameters.H_low = 146;
 	//parameters.S_high = 0.5;
 	//parameters.S_low = 0.25;
-	parameters.V_high = 0.55;
-	parameters.V_low = 0.1;
+	//parameters.V_high = 0.55;
+	//parameters.V_low = 0.1;
 
 	parameters.Hv_high = 200;
 	parameters.Hv_low = 146;
-	parameters.Sv_high = 500;
-	parameters.Sv_low = 250;
+	parameters.Sv_high = 650;
+	parameters.Sv_low = 150;
+	parameters.Vv_high = 550;
+	parameters.Vv_low = 100;
 
 	callback(0,0);
 	//load_test_image();
 	//animate_one();
 	//string file = get_file(30);
 	//colour_segmentaion(file);
-	animate_parameters();
-	animate();
+	animate_parameters();	// Run this to set your desired parameters - Press esc or close window when done
+	animate();				// This is the free running method
 	cv::waitKey();
 	return 0;
 }
