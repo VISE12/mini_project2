@@ -160,8 +160,7 @@ vector<vector<cv::Point> > get_valid_contours(vector< vector<cv::Point> >& conto
 	cout << "Contours after: "<< tmp.size() << endl;
 	return tmp;
 }
-void colour_segmentaion(){
-	string file = get_file(0);
+void colour_segmentaion(string file){
 	ImgT src = cv::imread(file);
 	src /= 255; // Convert to float region
 	if (src.data == NULL){
@@ -172,12 +171,12 @@ void colour_segmentaion(){
 
 	// convert to HSV
 	ImgT hsvimg;
+	cv::Mat element;
 	cv::cvtColor(src, hsvimg, CV_BGR2HSV, 0);
 	// threshold H value
 	threshold(hsvimg, hsvimg, 0, 150, 200);
 	vector<MatT> hsv_split(3);
 	cv::split(hsvimg,hsv_split);
-	cv::Mat element;
 	cv::erode(hsv_split.at(0), hsv_split.at(0), element);
 	cv::dilate(hsv_split.at(0),hsv_split.at(0), element);
 	use_bitmask(hsv_split.at(0), hsvimg, hsvimg);
@@ -200,6 +199,7 @@ void colour_segmentaion(){
 	binary.convertTo(binary, CV_8U);
 	cv::Mat canny_output;
 	// Detect edges using canny
+	cv::GaussianBlur(binary,binary,cv::Size(7,7),1.5,1.5);
 	double thresh = 2.0;
 	cv::Canny( binary, canny_output,thresh, thresh*2,3);
 	vector< vector<cv::Point> > contours;
@@ -217,9 +217,10 @@ void colour_segmentaion(){
 
 	// create components
 	componentlist.calculate_all(contours);
+	int step = 255/componentlist.list.size();
 	for (int i = 0; i < componentlist.list.size(); i++) {
 		cv::circle(drawing, componentlist.list.at(i).centroid,1,cv::Scalar(0,255,0),1);
-		cv::circle(src, componentlist.list.at(i).centroid,1,cv::Scalar(0,255,0),1);
+		cv::circle(src, componentlist.list.at(i).centroid,1,cv::Scalar(0,step*i,0),1);
 	}
 
 	// Show windows
@@ -228,18 +229,28 @@ void colour_segmentaion(){
 
 	//cv::cvtColor(hsvimg, src, CV_HSV2BGR);
 	//use_bitmask(hsv_split.at(2), src, src);
-	cv::imshow("HSV", hsvimg);
+	//cv::imshow("HSV", hsvimg);
 	cv::imshow("Original", src);
-	cv::imshow("Canny", canny_output);
-	cv::imshow("Colour", drawing);
-	//cv::imshow("H", hsv_split.at(0));
-	//cv::imshow("S", hsv_split.at(1));
-	//cv::imshow("V", hsv_split.at(2));
-	cv::waitKey();
+	//cv::imshow("Canny", canny_output);
+	//cv::imshow("Colour", drawing);
+	cv::imshow("H", hsv_split.at(0));
+	cv::imshow("S", hsv_split.at(1));
+	cv::imshow("V", hsv_split.at(2));
+}
+
+void animate(){
+	for (int i = 0; i < 30; i++) {
+		string file = get_file(i);
+		colour_segmentaion(file);
+		cv::waitKey(10);
+	}
 }
 int main(int argc, char **argv) {
 	//load_test_image();
 	//animate_one();
-	colour_segmentaion();
+	string file = get_file(30);
+	colour_segmentaion(file);
+	//animate();
+	cv::waitKey();
 	return 0;
 }
