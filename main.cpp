@@ -46,6 +46,7 @@ struct component{
 struct componentlist{
 	vector<component> list;
 	void calculate_all(vector<vector<cv::Point> > contours){
+		list.clear();
 		component tmp;
 		for (int i = 0; i < contours.size(); i++) {
 			tmp.calculate(contours.at(i));
@@ -54,7 +55,7 @@ struct componentlist{
 	}
 }componentlist;
 
-string path = "D:/Dropbox/7. Semester/VIS/mini project 2/vis1_pro2_sequences/vis1_pro2_sequences/sequence1/";
+string path = "D:/Dropbox/7. Semester/VIS/mini project 2/vis1_pro2_sequences/vis1_pro2_sequences/sequence3/";
 string winname = "output";
 
 string get_file(int img){
@@ -268,20 +269,54 @@ void feature_detection(string file){
 	// Detect edges using canny
 	//cv::GaussianBlur(binary,binary,cv::Size(7,7),1.5,1.5);
 	cv::GaussianBlur(gray,gray,cv::Size(7,7),1.5,1.5);
-	double thresh = 20;
+	double thresh = 25;
 	cv::Canny( gray, canny_output, thresh, thresh*3,3);
+
+	vector< vector<cv::Point> > contours;
+	cv::findContours(canny_output, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+	contours = get_valid_contours(contours, 80);
+	/// Draw contours
+	cv::Mat drawing = cv::Mat::zeros( canny_output.size(), CV_8UC3 );
+	cv::RNG rng(12345);
+	for( int i = 0; i< contours.size(); i++ ){
+		cv::Scalar color = cv::Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+		cv::drawContours( drawing, contours, i, color, 1);
+		//cv::Scalar color2 = cv::Scalar( rng.uniform(0, 1), rng.uniform(0,1), rng.uniform(0,1) );
+		//cv::drawContours( src, contours, i, color, 1);
+	}
+
+	// create components
+	componentlist.calculate_all(contours);
+	// calculate best circle
+	int step = 255/componentlist.list.size();
+	int best_circle = 0;
+	double min_comp = 9999;
+	for (int i = 0; i < componentlist.list.size(); i++) {
+		if (componentlist.list.at(i).compactness < min_comp){
+			min_comp = componentlist.list.at(i).compactness;
+			best_circle = i;
+		}
+		//cv::circle(drawing, componentlist.list.at(i).centroid,1,cv::Scalar(0,255,0),1);
+		//cv::circle(src, componentlist.list.at(i).centroid,1,cv::Scalar(0,step*i,0),1);
+	}
+	cout << "BEST: " << best_circle  << " at(" << componentlist.list.at(best_circle).centroid.x << ", "<< componentlist.list.at(best_circle).centroid.y << ") compactness: " << min_comp << " perimeter: "<< componentlist.list.at(best_circle).perimeter << endl;
+	cv::circle(drawing, componentlist.list.at(best_circle).centroid, 9, cv::Scalar(255,255,255),-1);
+	ImgT out = ImgT(src);
+	cv::circle(out, componentlist.list.at(best_circle).centroid, 9, cv::Scalar(255,255,255),-1);
+
 	// Try the harris corners function
-//	MatT gray;
-//	cv::cvtColor(src, gray, CV_BGR2GRAY);
+//	cv::Mat harris;
+//	my_grayscale(src, harris);
 //	MatT corners = cv::Mat::zeros( src.size(), CV_32FC1 );
 //	corners.convertTo(corners,CV_32FC1);
 //	cv::cornerHarris(canny_output, corners, 2, 3, 0.04);
 
 	cv::resize(src, src, cv::Size(0,0), 0.5,0.5);	// Resize the image to fit in stupid notebook window
 	//cv::resize(corners, corners, cv::Size(0,0), 0.5,0.5);	// Resize the image to fit in stupid notebook window
-	cv::imshow(winname, src);
-	cv::imshow("Gray", gray);
-	cv::imshow("Canny", canny_output);
+	cv::imshow(winname, out);
+	cv::imshow("Drawing", drawing);
+	//cv::imshow("Gray", gray);
+	//cv::imshow("Canny", canny_output);
 	//cv::imshow("Corner", corners);
 }
 void callback(int, void*){
