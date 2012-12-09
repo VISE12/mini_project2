@@ -23,12 +23,14 @@ struct component{
 	int perimeter;
 	double compactness;
 	cv::Point centroid;
+	cv::Point2f circ_c;
+	float circ_r;
 
 	void calculate(vector<cv::Point> contour){
 		area = cv::contourArea(contour);
-		perimeter = contour.size();
+		perimeter = cv::arcLength(contour,true);
 		compactness = (double) pow((double)perimeter, 2) / (double) area;
-
+		cv::minEnclosingCircle(contour, circ_c, circ_r);
 		int sumx=0, sumy=0;
 		for (int i = 0; i < contour.size(); i++) {
 			sumx += contour.at(i).x;
@@ -43,6 +45,7 @@ struct component{
 	}
 };
 
+bool compare(component i, component j) { return (i.compactness < j.compactness); }
 struct componentlist{
 	vector<component> list;
 	void calculate_all(vector<vector<cv::Point> > contours){
@@ -51,6 +54,13 @@ struct componentlist{
 		for (int i = 0; i < contours.size(); i++) {
 			tmp.calculate(contours.at(i));
 			list.push_back(tmp);
+			cout << "Compacness: " << tmp.compactness << endl;
+		}
+	cout << "SORT" << endl;
+		// sort according to circle'ness)
+		sort(list.begin(), list.end(), compare);
+		for (int i = 0; i < list.size(); i++) {
+			cout << "Compacness: " << list.at(i).compactness << endl;
 		}
 	}
 }componentlist;
@@ -155,29 +165,42 @@ void colour_segmentaion(string file){
 	// convert to HSV
 	ImgT hsvimg;
 	cv::Mat element;
+	cv::Mat element_cross = cv::Mat::ones(3,3,CV_8U);
+	element_cross.at<T>(0,0) = 0;
+	element_cross.at<T>(2,2) = 0;
+	element_cross.at<T>(0,2) = 0;
+	element_cross.at<T>(2,0) = 0;
 	cv::cvtColor(src, hsvimg, CV_BGR2HSV, 0);
 	// threshold H value
 	//threshold(hsvimg, hsvimg, 0, 150, 200);
 	threshold(hsvimg, hsvimg, 0, parameters.H_low, parameters.H_high);
 	vector<MatT> hsv_split(3);
 	cv::split(hsvimg,hsv_split);
-	cv::erode(hsv_split.at(0), hsv_split.at(0), element);
-	cv::dilate(hsv_split.at(0),hsv_split.at(0), element);
-	use_bitmask(hsv_split.at(0), hsvimg, hsvimg);
+	cv::erode(hsv_split.at(0), hsv_split.at(0), element, cv::Point(-1,-1), 1);
+	cv::dilate(hsv_split.at(0),hsv_split.at(0), element_cross, cv::Point(-1,-1), 1);
+	MatT imgH = hsv_split.at(0).clone();
+	//use_bitmask(hsv_split.at(0), hsvimg, hsvimg);
 	// threshold S
 	//threshold(hsvimg, hsvimg, 1, 0.25, 0.5);
 	threshold(hsvimg, hsvimg, 1, parameters.S_low, parameters.S_high);
 	cv::split(hsvimg,hsv_split);
 	cv::erode(hsv_split.at(1), hsv_split.at(1), element);
 	cv::dilate(hsv_split.at(1),hsv_split.at(1), element);
-	use_bitmask(hsv_split.at(1), hsvimg, hsvimg);
+	MatT imgS = hsv_split.at(1).clone();
+	//use_bitmask(hsv_split.at(1), hsvimg, hsvimg);
 	// threshold V
 	//threshold(hsvimg, hsvimg, 2, 0.1, 0.55);
 	threshold(hsvimg, hsvimg, 2, parameters.V_low, parameters.V_high);
 	cv::split(hsvimg,hsv_split);
 	cv::erode(hsv_split.at(2), hsv_split.at(2), element);
 	cv::dilate(hsv_split.at(2),hsv_split.at(2), element);
-	use_bitmask(hsv_split.at(2), hsvimg, hsvimg);
+	MatT imgV = hsv_split.at(2).clone();
+	//use_bitmask(hsv_split.at(2), hsvimg, hsvimg);
+
+	use_bitmask(imgH, hsvimg, hsvimg);
+	use_bitmask(imgS, hsvimg, hsvimg);
+	use_bitmask(imgV, hsvimg, hsvimg);
+	cv::split(hsvimg,hsv_split);
 
 	// Find contours
 	cv::Mat binary;
@@ -189,24 +212,43 @@ void colour_segmentaion(string file){
 	double thresh = 2.0;
 	cv::Canny( binary, canny_output,thresh, thresh*2,3);
 	vector< vector<cv::Point> > contours;
-	cv::findContours(binary, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
-	contours = get_valid_contours(contours, 70);
+	vector<cv::Vec4i> hierarchy;
+	cv::findContours(binary, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE);
+	//contours = get_valid_contours(contours, 70);
 	/// Draw contours
 	cv::Mat drawing = cv::Mat::zeros( canny_output.size(), CV_8UC3 );
 	cv::RNG rng(12345);
 	for( int i = 0; i< contours.size(); i++ ){
 		cv::Scalar color = cv::Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
 		cv::drawContours( drawing, contours, i, color, 1);
-		cv::Scalar color2 = cv::Scalar( rng.uniform(0, 1), rng.uniform(0,1), rng.uniform(0,1) );
-		cv::drawContours( src, contours, i, color, 1);
+		//cv::Scalar color2 = cv::Scalar( rng.uniform(0, 1), rng.uniform(0,1), rng.uniform(0,1) );
+		cv::Scalar color2 = cv::Scalar( 255,255,255 );
+		//cv::drawContours( src, contours, i, color, 1,0,hierarchy,0);
 	}
 
 	// create components
+	component outer_circle, inner_circle;
 	componentlist.calculate_all(contours);
-	int step = 255/componentlist.list.size();
 	for (int i = 0; i < componentlist.list.size(); i++) {
+	int no_of_circles = (componentlist.list.size() > 2) ? 2 : componentlist.list.size();
+	//for (int i = 0; i < no_of_circles; i++) {
 		cv::circle(drawing, componentlist.list.at(i).centroid,1,cv::Scalar(0,255,0),1);
-		cv::circle(src, componentlist.list.at(i).centroid,1,cv::Scalar(0,step*i,0),1);
+		cv::circle(src, componentlist.list.at(i).centroid,3,cv::Scalar(0,0,255),-1);
+		for (int k = 0; k < 4; k++){
+			//cout << "H: " << hierarchy[i][k] << endl;
+		}
+
+		if ( hierarchy[i][2] != -1 ) {
+			// random colour
+			cout << i << " has child: " << hierarchy[i][2] << endl;
+			cv::Scalar colour(0,255,255);
+			cv::drawContours( src, contours, i, colour,1 );
+			cv::drawContours( src, contours, hierarchy[i][2], cv::Scalar(0,255,0),1 );
+			outer_circle.calculate(contours.at(i));
+			inner_circle.calculate(contours.at(hierarchy[i][2]));
+		}
+
+		//cv::circle(src, componentlist.list.at(i).circ_c,componentlist.list.at(i).circ_r,cv::Scalar(255,0,255),2);
 	}
 
 	// Show windows
@@ -219,12 +261,16 @@ void colour_segmentaion(string file){
 	//cv::imshow("HSV", hsvimg);
 
 	cv::resize(src, src, cv::Size(0,0), 0.5,0.5);	// Resize the image to fit in stupid notebook window
+	cv::resize(imgH, imgH, cv::Size(0,0), 0.5,0.5);	// Resize the image to fit in stupid notebook window
+	cv::resize(imgS, imgS, cv::Size(0,0), 0.5,0.5);	// Resize the image to fit in stupid notebook window
+	cv::resize(imgV, imgV, cv::Size(0,0), 0.5,0.5);	// Resize the image to fit in stupid notebook window
 	cv::imshow(winname, src);
 	//cv::imshow("Canny", canny_output);
 	//cv::imshow("Colour", drawing);
+	//cv::imshow("H bitmask", imgH);
 	//cv::imshow("H", hsv_split.at(0));
-	//cv::imshow("S", hsv_split.at(1));
-	//cv::imshow("V", hsv_split.at(2));
+	cv::imshow("S bitmask", imgS);
+	//cv::imshow("V bitmask", imgV);
 }
 
 void animate(){
@@ -273,7 +319,8 @@ void feature_detection(string file){
 	cv::Canny( gray, canny_output, thresh, thresh*3,3);
 
 	vector< vector<cv::Point> > contours;
-	cv::findContours(canny_output, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+	//cv::findContours(canny_output, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
+	cv::findContours(canny_output, contours, CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE);
 	contours = get_valid_contours(contours, 80);
 	/// Draw contours
 	cv::Mat drawing = cv::Mat::zeros( canny_output.size(), CV_8UC3 );
@@ -364,9 +411,9 @@ void animate_feature(){
 
 int main(int argc, char **argv) {
 	parameters.Hv_high = 200;
-	parameters.Hv_low = 146;
-	parameters.Sv_high = 650;
-	parameters.Sv_low = 150;
+	parameters.Hv_low = 123;
+	parameters.Sv_high = 667;
+	parameters.Sv_low = 181;
 	parameters.Vv_high = 550;
 	parameters.Vv_low = 100;
 
@@ -375,10 +422,10 @@ int main(int argc, char **argv) {
 	//animate_one();
 	//string file = get_file(30);
 	//colour_segmentaion(file);
-	//animate_parameters();	// Run this to set your desired parameters - Press esc or close window when done
-	//animate();				// This is the free running method
+	animate_parameters();	// Run this to set your desired parameters - Press esc or close window when done
+	animate();				// This is the free running method
 
-	animate_feature();
+	//animate_feature();
 	cv::waitKey();
 	return 0;
 }
