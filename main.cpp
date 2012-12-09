@@ -442,7 +442,8 @@ int main(int argc, char **argv) {
 	animate();				// This is the free running method
 
 	for(int i = 0; i < distances.size(); i++){
-		cout << i << " : " << distances.at(i) << endl;
+		//cout << i << " : " << distances.at(i) << endl;
+		cout << distances.at(i) << ", ";
 	}
 	//animate_feature();
 	cv::waitKey();
