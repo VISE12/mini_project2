@@ -25,6 +25,7 @@ struct component{
 	cv::Point centroid;
 	cv::Point2f circ_c;
 	float circ_r;
+	cv::RotatedRect elipsis;
 
 	void calculate(vector<cv::Point> contour){
 		area = cv::contourArea(contour);
@@ -37,6 +38,7 @@ struct component{
 			sumy += contour.at(i).y;
 		}
 		centroid = cv::Point(sumx/contour.size(), sumy/contour.size());
+		//elipsis = cv::fitEllipse(contour);
 
 //		cout << "Compactness: " << compactness << endl;
 //		cout << "Perimeter: " << perimeter << endl;
@@ -64,6 +66,8 @@ struct componentlist{
 		}
 	}
 }componentlist;
+
+vector<double> distances;
 
 string path = "D:/Dropbox/7. Semester/VIS/mini project 2/vis1_pro2_sequences/vis1_pro2_sequences/sequence3/";
 string winname = "output";
@@ -233,7 +237,7 @@ void colour_segmentaion(string file){
 	int no_of_circles = (componentlist.list.size() > 2) ? 2 : componentlist.list.size();
 	//for (int i = 0; i < no_of_circles; i++) {
 		cv::circle(drawing, componentlist.list.at(i).centroid,1,cv::Scalar(0,255,0),1);
-		cv::circle(src, componentlist.list.at(i).centroid,3,cv::Scalar(0,0,255),-1);
+		//cv::circle(src, componentlist.list.at(i).centroid,3,cv::Scalar(0,0,255),-1);
 		for (int k = 0; k < 4; k++){
 			//cout << "H: " << hierarchy[i][k] << endl;
 		}
@@ -241,11 +245,23 @@ void colour_segmentaion(string file){
 		if ( hierarchy[i][2] != -1 ) {
 			// random colour
 			cout << i << " has child: " << hierarchy[i][2] << endl;
-			cv::Scalar colour(0,255,255);
-			cv::drawContours( src, contours, i, colour,1 );
-			cv::drawContours( src, contours, hierarchy[i][2], cv::Scalar(0,255,0),1 );
-			outer_circle.calculate(contours.at(i));
-			inner_circle.calculate(contours.at(hierarchy[i][2]));
+			if (contours.at(i).size() > 5 && contours.at(hierarchy[i][2]).size() > 5){
+				outer_circle.calculate(contours.at(i));
+				inner_circle.calculate(contours.at(hierarchy[i][2]));
+				if (outer_circle.perimeter > 150 && inner_circle.perimeter > 40){
+					cv::Scalar colour(0,255,255);
+					cv::drawContours( src, contours, i, colour,1 );
+					cv::drawContours( src, contours, hierarchy[i][2], cv::Scalar(0,255,0),1 );
+					outer_circle.elipsis = cv::fitEllipse(contours.at(i));
+					inner_circle.elipsis = cv::fitEllipse(contours.at(hierarchy[i][2]));
+					cv::circle(src, outer_circle.elipsis.center, 1, cv::Scalar(0,0,255),3);
+					cv::circle(src, inner_circle.elipsis.center, 1, cv::Scalar(0,0,255),3);
+					double dist = sqrt(pow(outer_circle.elipsis.center.x - inner_circle.elipsis.center.x,2) + pow(outer_circle.elipsis.center.y - inner_circle.elipsis.center.y,2));
+					cout << "Distance: " << dist << endl;
+					distances.push_back(dist);
+				}
+			}
+
 		}
 
 		//cv::circle(src, componentlist.list.at(i).circ_c,componentlist.list.at(i).circ_r,cv::Scalar(255,0,255),2);
@@ -269,7 +285,7 @@ void colour_segmentaion(string file){
 	//cv::imshow("Colour", drawing);
 	//cv::imshow("H bitmask", imgH);
 	//cv::imshow("H", hsv_split.at(0));
-	cv::imshow("S bitmask", imgS);
+	//cv::imshow("S bitmask", imgS);
 	//cv::imshow("V bitmask", imgV);
 }
 
@@ -422,9 +438,12 @@ int main(int argc, char **argv) {
 	//animate_one();
 	//string file = get_file(30);
 	//colour_segmentaion(file);
-	animate_parameters();	// Run this to set your desired parameters - Press esc or close window when done
+	//animate_parameters();	// Run this to set your desired parameters - Press esc or close window when done
 	animate();				// This is the free running method
 
+	for(int i = 0; i < distances.size(); i++){
+		cout << i << " : " << distances.at(i) << endl;
+	}
 	//animate_feature();
 	cv::waitKey();
 	return 0;
